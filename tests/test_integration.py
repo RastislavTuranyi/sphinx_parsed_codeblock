@@ -44,8 +44,8 @@ def test_integration_html(app, status):
     app.build()
     assert "build succeeded" in status.getvalue()  # Build succeeded
 
-    result = clean_up((Path(app.srcdir) / "_build/html/index.html").read_text())
-    expected = clean_up((root_dir / 'roots' / 'test-integration' / "index.html").read_text())
+    result = clean_up((Path(app.srcdir) / "_build/html/test.html").read_text())
+    expected = clean_up((root_dir / 'roots' / 'test-integration' / "test.html").read_text())
 
     assert expected != []
     assert result == expected
