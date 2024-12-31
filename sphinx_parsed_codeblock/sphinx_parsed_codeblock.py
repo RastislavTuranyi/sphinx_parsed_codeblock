@@ -6,21 +6,112 @@ import warnings
 from docutils import nodes
 from docutils.nodes import literal_block
 
-from pygments.formatters.html import escape_html
+from pygments.formatters.html import escape_html, HtmlFormatter
 
 from sphinx.directives.code import CodeBlock
 
 
-def get_next(iterator, end=True) -> tuple[str, str, int]:
-    result = next(iterator)
-    span, match = result.groups()
+class MarkupHtmlFormatter(HtmlFormatter):
+    def __init__(self, node, visitor, **options):
+        super().__init__(**options)
 
-    if end:
-        pos = result.end()
-    else:
-        pos = result.start()
+        self.sphinx_generator = self._get_sphinx(node, visitor)
 
-    return span, match, pos
+    def _get_sphinx(self, node, visitor):
+        for child in node.children:
+            if isinstance(child, nodes.Text):
+                for line in child.astext().split('\n'):
+                    yield escape_html(line), None
+            else:
+                yield escape_html(child.astext()), build_child_source(visitor, child)
+
+    def _insert_markup(self, tokensource):
+        for t, line in tokensource:
+            try:
+                yield t, ''.join(self._handle_one_line(line))
+            except nodes.SkipNode:
+                yield t, line
+
+    def _handle_one_line(self, line):
+        new_line = []
+        span_iterator = re.finditer(r'(<span.*?>)(.*?)</span>', line)
+        span, match = next(span_iterator).groups()
+        for text, markup in self.sphinx_generator:
+            if markup is None:
+                while True:
+                    if not text:
+                        break
+
+                    if match == text[:len(match)]:
+                        text = text[len(match):]
+                        new_line.append(span + match + r'</span>')
+
+                        try:
+                            span, match = next(span_iterator).groups()
+                        except StopIteration:
+                            new_line.append('\n')
+                            return new_line
+                    else:
+                        raise Exception()
+
+                continue
+
+            if match == text:
+                new_line.append(span + markup + r'</span>')
+            else:
+                spans, matches = [span], [match]
+                for result in span_iterator:
+                    spans.append(result.groups()[0])
+                    matches.append(result.groups()[1])
+
+                    if ''.join(matches) == text:
+                        break
+                else:
+                    warnings.warn('Could not parse HTML; this is likely a bug', Warning)
+                    raise nodes.SkipNode
+
+                try:
+                    start, end = markup.split(''.join(matches))
+                except ValueError:
+                    start, end = parse_complex_sphinx_source(markup, matches)
+
+                new_line.append(start)
+                for span, match in zip(spans, matches):
+                    new_line.append(span + match + r'</span>')
+                new_line.append(end)
+
+            try:
+                span, match = next(span_iterator).groups()
+            except StopIteration:
+                new_line.append('\n')
+                return new_line
+
+    def format_unencoded(self, tokensource, outfile):
+        source = self._format_lines(tokensource)
+        source = self._insert_markup(source)
+
+        # As a special case, we wrap line numbers before line highlighting
+        # so the line numbers get wrapped in the highlighting tag.
+        if not self.nowrap and self.linenos == 2:
+            source = self._wrap_inlinelinenos(source)
+
+        if self.hl_lines:
+            source = self._highlight_lines(source)
+
+        if not self.nowrap:
+            if self.lineanchors:
+                source = self._wrap_lineanchors(source)
+            if self.linespans:
+                source = self._wrap_linespans(source)
+            source = self.wrap(source)
+            if self.linenos == 1:
+                source = self._wrap_tablelinenos(source)
+            source = self._wrap_div(source)
+            if self.full:
+                source = self._wrap_full(source, outfile)
+
+        for t, piece in source:
+            outfile.write(piece)
 
 
 def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, str]:
@@ -57,6 +148,12 @@ def visit_parsed_code_block(self, node: parsed_code_block) -> None:
     if linenos and self.config.html_codeblock_linenos_style:
         linenos = self.config.html_codeblock_linenos_style
 
+    og_formatter = self.highlighter.formatter
+    self.highlighter.formatter = MarkupHtmlFormatter
+
+    highlight_args['node'] = node
+    highlight_args['visitor'] = self
+
     highlighted = self.highlighter.highlight_block(
         node.astext(),
         lang,
@@ -66,77 +163,13 @@ def visit_parsed_code_block(self, node: parsed_code_block) -> None:
         **highlight_args,
     )
 
+    self.highlighter.formatter = og_formatter
+
     starttag = self.starttag(
         node, 'div', suffix='', CLASS='highlight-%s notranslate' % lang
     )
 
-    if not node.children:
-        self.body.append(starttag + highlighted + '</div>\n')
-        raise nodes.SkipNode
-
-    span_iterator = re.finditer(r'(<span.*?>)(.*?)</span>', highlighted)
-
-    span, match, regex_start = get_next(span_iterator, end=False)
-
-    new_text = []
-    try:
-        for child in node.children:
-            if isinstance(child, nodes.Text):
-                text = escape_html(child.astext())
-
-                while True:
-                    if not text:
-                        break
-
-                    if match == text[:len(match)]:
-                        text = text[len(match):]
-                        new_text.append(span + match + r'</span>')
-                        span, match, regex_end = get_next(span_iterator)
-                    elif text[0] == '\n':
-                        text = text[1:]
-                        new_text.append('\n')
-                    else:
-                        break
-
-                continue
-
-            contents = escape_html(child.astext())
-            if match == contents:
-                new_text.append(span + build_child_source(self, child) + r'</span>')
-                span, match, regex_end = get_next(span_iterator)
-            else:
-                spans, matches = [span], [match]
-                for result in span_iterator:
-                    spans.append(result.groups()[0])
-                    matches.append(result.groups()[1])
-                    regex_end = result.end()
-
-                    if ''.join(matches) == contents:
-                        break
-                else:
-                    self.body.append(starttag + highlighted + '</div>\n')
-                    warnings.warn('Could not parse HTML; this is likely a bug', Warning)
-                    raise nodes.SkipNode
-
-                source = build_child_source(self, child)
-                try:
-                    start, end = source.split(''.join(matches))
-                except ValueError:
-                    start, end = parse_complex_sphinx_source(source, matches)
-
-                new_text.append(start)
-                for span, match in zip(spans, matches):
-                    new_text.append(span + match + r'</span>')
-                new_text.append(end)
-
-                span, match, regex_end = get_next(span_iterator)
-    except StopIteration:
-        pass
-
-    start = highlighted[:regex_start]
-    end = highlighted[regex_end:]
-
-    self.body.append(starttag + start + ''.join(new_text) + end + '</div>\n')
+    self.body.append(starttag + highlighted + '</div>\n')
     raise nodes.SkipNode
 
 
