@@ -10,7 +10,7 @@ This extension has exactly one functionality: to provide a new directive that co
 Sphinx `code-block/sourcecode/code <https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block>`_
 directive::
 
-    .. parsed-code-block:: yaml
+    .. parsed-code-block::
 
         foo:
             bar: baz
@@ -23,6 +23,7 @@ of the ``parsed-code-block`` are first parsed for inline RST markup, which is th
 synthax-highlighted contents. This, in effect, means that inline markup can be used together with the syntax highlighting::
 
     .. parsed-code-block:: yaml
+        :linenos:
 
         foo:
             italics: *"string"*
@@ -33,6 +34,7 @@ synthax-highlighted contents. This, in effect, means that inline markup can be u
 yields:
 
 .. parsed-code-block:: yaml
+    :linenos:
 
     foo:
         italics: *"string"*
@@ -79,5 +81,6 @@ More Information
     :maxdepth: 1
 
     examples
+    source
 
 

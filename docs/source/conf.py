@@ -16,7 +16,8 @@ author = 'Rastislav Turanyi'
 master_doc = "index"
 
 extensions = [
-    'sphinx_parsed_codeblock'
+    'sphinx_parsed_codeblock',
+    'numpydoc',
 ]
 
 templates_path = ['_templates']
