@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import re
-from typing import TYPE_CHECKING
+from typing import Generator, TYPE_CHECKING
 
 from docutils import nodes
 from docutils.nodes import literal_block
@@ -15,18 +15,46 @@ from sphinx.util import logging
 
 if TYPE_CHECKING:
     from sphinx.builders.html import HTML5Translator
+    from sphinx.application import Sphinx
 
 
 LOGGER = logging.getLogger(__name__)
 
 
 class MarkupHtmlFormatter(HtmlFormatter):
-    def __init__(self, node: parsed_code_block, visitor: HTML5Translator, **options):
+    def __init__(self,
+                 node: parsed_code_block,
+                 visitor: HTML5Translator,
+                 **options):
         super().__init__(**options)
 
         self.sphinx_generator = self._get_sphinx(node, visitor)
 
-    def _get_sphinx(self, node, visitor):
+    @staticmethod
+    def _get_sphinx(node: parsed_code_block,
+                    visitor: HTML5Translator
+                    ) -> Generator[tuple[str, str | None], None, None]:
+        """
+        Creates a generator that yields elements from the sphinx nodes.
+
+        To be precise, it either yields a full line of text (as marked by the \n character, which
+        happens if a given sphinx node is a non-markup Text node), or the full contents of a markup
+        node.
+
+        Parameters
+        ----------
+        node
+            The `parsed_code_block` node that is being highlighted.
+        visitor
+            The visitor used in docutils/sphinx for walking through nodes.
+
+        Yields
+        ------
+        text: str
+            The simple text of an element.
+        markup: str or None
+            The HTML-formatted element.
+        """
         for child in node.children:
             if isinstance(child, nodes.Text):
                 for line in child.astext().split('\n'):
@@ -34,14 +62,39 @@ class MarkupHtmlFormatter(HtmlFormatter):
             else:
                 yield escape_html(child.astext()), build_child_source(visitor, child)
 
-    def _insert_markup(self, tokensource):
-        for t, line in tokensource:
-            try:
-                yield t, ''.join(self._handle_one_line(line))
-            except nodes.SkipNode:
-                yield t, line
+    def _insert_markup(self, tokensource: Generator) -> Generator[tuple[int, str], None, None]:
+        """
+        Inserts sphinx markup into a highlighted line, yielding the lines.
 
-    def _handle_one_line(self, line):
+        Parameters
+        ----------
+        tokensource
+            Generator over syntax-highlighted lines.
+
+        Yields
+        ------
+        int
+            The integer from `tokensource`.
+        line: str
+            The syntax-highlighted line containing sphinx markup.
+        """
+        for t, line in tokensource:
+            yield t, ''.join(self._handle_one_line(line))
+
+    def _handle_one_line(self, line: str) -> list[str] | str:
+        """
+        Inserts the sphinx markup into one line of syntax-highlighted code.
+
+        Parameters
+        ----------
+        line
+            A single line of already syntax-highlighted code.
+
+        Returns
+        -------
+        new_line
+            The `line` with the sphinx markup inserted.
+        """
         new_line = []
         span_iterator = re.finditer(r'(<span.*?>)(.*?)</span>', line)
         span, match = next(span_iterator).groups()
@@ -61,7 +114,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                             new_line.append('\n')
                             return new_line
                     else:
-                        raise Exception()
+                        LOGGER.warning('Could not parse HTML; this is likely a bug')
+                        return line
 
                 continue
 
@@ -77,7 +131,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
                         break
                 else:
                     LOGGER.warning('Could not parse HTML; this is likely a bug')
-                    raise nodes.SkipNode
+                    return line
 
                 try:
                     start, end = markup.split(''.join(matches))
@@ -124,6 +178,30 @@ class MarkupHtmlFormatter(HtmlFormatter):
 
 
 def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, str]:
+    """
+    Attempts to parse sphinx-formatted HTML markup to find the HTML tags responsible.
+
+    Should be used when sphinx does not format a markup element by simply enclosing the text in some
+    HTML tags (e.g. ideally ``foo: **bar**`` -> ``foo: <b>bar</b>``), but instead inserts various
+    ``span`` elements inside, i.e. ``foo: **[1, 2]**`` ->
+    ``foo: <b><span>[1,</span><span> 2]</span></b>``. In the above example, this function attempts
+    to find and return the ``<b>`` and ``</b>`` tags.
+
+    Parameters
+    ----------
+    source
+        The sphinx-formatted HTML output, with the markup present in the HTML.
+    matches
+        The text that is expected inside the tags attempted to be found. Used for logging in case of
+        failure.
+
+    Returns
+    -------
+    start_tag
+        The start HTML tag applied by sphinx. Empty string if failed.
+    end_tag
+        The end HTML tag applied by sphinx. Empty string if failed.
+    """
     try:
         result = next(re.finditer(r'<span.*</span>', source))
         return source[:result.start()], source[result.end():]
@@ -134,6 +212,7 @@ def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, s
 
 
 class parsed_code_block(literal_block):
+    """Custom node for the parsed code-block - a subclass of `docutils.nodes.literal_block`"""
     def protect_children(self):
         """
         Creates a deep copy of children in a new, otherwise unused variable.
@@ -146,7 +225,22 @@ class parsed_code_block(literal_block):
         self._protected_children = deepcopy(self.children)
 
 
-def build_child_source(visitor, child: nodes.Node) -> str:
+def build_child_source(visitor: HTML5Translator, child: nodes.Node) -> str:
+    """
+    Formats a markup element using sphinx and returns the HTML code.
+
+    Parameters
+    ----------
+    visitor
+        The node visitor used for traversing nodes and creating HTML output.
+    child
+        A child of the `parsed_code_block` node. Should be a child that has a markup.
+
+    Returns
+    -------
+    source
+        The HTML source for the given `child`.
+    """
     i = len(visitor.body)
     child.walkabout(visitor)
     source = visitor.body.pop(i)
@@ -158,6 +252,16 @@ def build_child_source(visitor, child: nodes.Node) -> str:
 
 
 def visit_parsed_code_block(self: HTML5Translator, node: parsed_code_block) -> None:
+    """
+    Visits the `parsed_code_block` node and creates the HTML output.
+
+    Parameters
+    ----------
+    self
+        The HTML translator.
+    node
+        The `parsed_code_block` node to create HTML output for
+    """
     lang = node.get('language', 'default')
     linenos = node.get('linenos', False)
     highlight_args = node.get('highlight_args', {})
@@ -193,6 +297,7 @@ def visit_parsed_code_block(self: HTML5Translator, node: parsed_code_block) -> N
 
 
 def depart_parsed_code_block(self, node: parsed_code_block) -> None:
+    """Empty function; all HTML output for `parsed_code_block` occurs in `visit_parsed_code_block`"""
     pass
 
 
@@ -219,15 +324,14 @@ class ParsedCodeBlock(CodeBlock):
         custom_node.extend(text_nodes)
 
         if caption:
-            custom_node.protect_children()
+            custom_node.protect_children()  # Necessary to work with the container
             custom_node = container_wrapper(self, custom_node, caption)
-
-        # self.add_name(custom_node)
 
         return [custom_node]
 
 
-def setup(app):
+def setup(app: Sphinx) -> dict[str, str | bool]:
+    """The main function - sets up the extension."""
     app.add_directive('parsed-code-block', ParsedCodeBlock)
 
     app.add_node(parsed_code_block,
