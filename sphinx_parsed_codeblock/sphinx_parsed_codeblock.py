@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from copy import deepcopy
 import re
+from typing import TYPE_CHECKING
 import warnings
 
 from docutils import nodes
@@ -8,11 +10,15 @@ from docutils.nodes import literal_block
 
 from pygments.formatters.html import escape_html, HtmlFormatter
 
-from sphinx.directives.code import CodeBlock
+from sphinx.directives.code import CodeBlock, container_wrapper
+
+
+if TYPE_CHECKING:
+    from sphinx.builders.html import HTML5Translator
 
 
 class MarkupHtmlFormatter(HtmlFormatter):
-    def __init__(self, node, visitor, **options):
+    def __init__(self, node: parsed_code_block, visitor: HTML5Translator, **options):
         super().__init__(**options)
 
         self.sphinx_generator = self._get_sphinx(node, visitor)
@@ -124,7 +130,16 @@ def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, s
 
 
 class parsed_code_block(literal_block):
-    pass
+    def protect_children(self):
+        """
+        Creates a deep copy of children in a new, otherwise unused variable.
+
+        This is necessary for the children not to get deleted by sphinx/docutils when `parsed_code_block` is wrapped in
+        `docutils.nodes.container` when the ``caption`` is set.
+
+        The copy is not actually used, but its mere presence fixes the issue.
+        """
+        self._protected_children = deepcopy(self.children)
 
 
 def build_child_source(visitor, child: nodes.Node) -> str:
@@ -138,7 +153,7 @@ def build_child_source(visitor, child: nodes.Node) -> str:
     return source
 
 
-def visit_parsed_code_block(self, node: parsed_code_block) -> None:
+def visit_parsed_code_block(self: HTML5Translator, node: parsed_code_block) -> None:
     lang = node.get('language', 'default')
     linenos = node.get('linenos', False)
     highlight_args = node.get('highlight_args', {})
@@ -182,11 +197,26 @@ class ParsedCodeBlock(CodeBlock):
         text_nodes, messages = self.state.inline_text('\n'.join(self.content), self.lineno)
         node = super().run()[0]
 
+        caption = self.options.get('caption')
+        if caption:
+            for child in node.children:
+                if not isinstance(child, nodes.caption):
+                    node = child
+                    break
+            else:
+                warnings.warn('parsed-code-block could not be created because of an issue with the '
+                              'caption; defaulting to the parsed-literal behaviour (this may be a '
+                              'bug)', Warning)
+                return [node]
+
         custom_node = parsed_code_block('', '')
         custom_node.__dict__ = node.__dict__
-
         custom_node.children = []
         custom_node.extend(text_nodes)
+
+        if caption:
+            custom_node.protect_children()
+            custom_node = container_wrapper(self, custom_node, caption)
 
         # self.add_name(custom_node)
 

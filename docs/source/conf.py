@@ -13,6 +13,8 @@ author = 'Rastislav Turanyi'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
+master_doc = "index"
+
 extensions = [
     'sphinx_parsed_codeblock'
 ]

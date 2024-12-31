@@ -32,6 +32,8 @@ def clean_up(text: str) -> list[str]:
             continue
 
         if line:
+            if 'class="headerlink" href="#id1" title="Link to this code">' in line:
+                continue
             out.append(line)
 
     return out
