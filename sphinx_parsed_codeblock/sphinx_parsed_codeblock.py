@@ -3,7 +3,6 @@ from __future__ import annotations
 from copy import deepcopy
 import re
 from typing import TYPE_CHECKING
-import warnings
 
 from docutils import nodes
 from docutils.nodes import literal_block
@@ -11,10 +10,14 @@ from docutils.nodes import literal_block
 from pygments.formatters.html import escape_html, HtmlFormatter
 
 from sphinx.directives.code import CodeBlock, container_wrapper
+from sphinx.util import logging
 
 
 if TYPE_CHECKING:
     from sphinx.builders.html import HTML5Translator
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MarkupHtmlFormatter(HtmlFormatter):
@@ -73,7 +76,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
                     if ''.join(matches) == text:
                         break
                 else:
-                    warnings.warn('Could not parse HTML; this is likely a bug', Warning)
+                    LOGGER.warning('Could not parse HTML; this is likely a bug')
                     raise nodes.SkipNode
 
                 try:
@@ -125,7 +128,8 @@ def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, s
         result = next(re.finditer(r'<span.*</span>', source))
         return source[:result.start()], source[result.end():]
     except StopIteration:
-        warnings.warn(f'Sphinx HTML render of the "{"".join(matches)}" line could not be interpreted; markup ignored.')
+        LOGGER.warning(f'Sphinx HTML render of the "{"".join(matches)}" line could not be '
+                       f'interpreted; markup ignored.')
         return '', ''
 
 
@@ -204,9 +208,9 @@ class ParsedCodeBlock(CodeBlock):
                     node = child
                     break
             else:
-                warnings.warn('parsed-code-block could not be created because of an issue with the '
-                              'caption; defaulting to the parsed-literal behaviour (this may be a '
-                              'bug)', Warning)
+                LOGGER.warning('parsed-code-block could not be created because of an issue '
+                               'with the caption; defaulting to the parsed-literal behaviour (this '
+                               'may be a bug)')
                 return [node]
 
         custom_node = parsed_code_block('', '')
