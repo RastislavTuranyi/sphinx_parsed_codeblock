@@ -114,7 +114,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                             new_line.append('\n')
                             return new_line
                     else:
-                        LOGGER.warning('Could not parse HTML; this is likely a bug')
+                        LOGGER.warning('sphinx-parsed-codeblock: '
+                                       'Could not parse HTML; this is likely a bug')
                         return line
 
                 continue
@@ -130,7 +131,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                     if ''.join(matches) == text:
                         break
                 else:
-                    LOGGER.warning('Could not parse HTML; this is likely a bug')
+                    LOGGER.warning('sphinx-parsed-codeblock: '
+                                   'Could not parse HTML; this is likely a bug')
                     return line
 
                 try:
@@ -206,7 +208,8 @@ def parse_complex_sphinx_source(source: str, matches: list[str]) -> tuple[str, s
         result = next(re.finditer(r'<span.*</span>', source))
         return source[:result.start()], source[result.end():]
     except StopIteration:
-        LOGGER.warning(f'Sphinx HTML render of the "{"".join(matches)}" line could not be '
+        LOGGER.warning(f'sphinx-parsed-codeblock: '
+                       f'Sphinx HTML render of the "{"".join(matches)}" line could not be '
                        f'interpreted; markup ignored.')
         return '', ''
 
@@ -313,7 +316,8 @@ class ParsedCodeBlock(CodeBlock):
                     node = child
                     break
             else:
-                LOGGER.warning('parsed-code-block could not be created because of an issue '
+                LOGGER.warning('sphinx-parsed-codeblock: '
+                               'parsed-code-block could not be created because of an issue '
                                'with the caption; defaulting to the parsed-literal behaviour (this '
                                'may be a bug)')
                 return [node]
