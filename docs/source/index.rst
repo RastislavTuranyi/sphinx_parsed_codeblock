@@ -80,6 +80,7 @@ More Information
 .. toctree::
     :maxdepth: 1
 
+    installation
     examples
     source
 
