@@ -115,7 +115,9 @@ class MarkupHtmlFormatter(HtmlFormatter):
                             return new_line
                     else:
                         LOGGER.warning('sphinx-parsed-codeblock: '
-                                       'Could not parse HTML; this is likely a bug')
+                                       'Could not resolve markup and syntax highlighting; this '
+                                       'will probably cause much of the markup from a code-block '
+                                       'to be removed (this is likely a bug)')
                         return line
 
                 continue
@@ -132,7 +134,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                         break
                 else:
                     LOGGER.warning('sphinx-parsed-codeblock: '
-                                   'Could not parse HTML; this is likely a bug')
+                                   'Could not resolve markup and syntax highlighting; one line of '
+                                   'a code-block will be stripped of markup (this is likely a bug)')
                     return line
 
                 try:
