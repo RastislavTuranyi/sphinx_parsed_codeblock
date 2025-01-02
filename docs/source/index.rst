@@ -82,6 +82,7 @@ More Information
 
     installation
     examples
+    explanation
     source
 
 
