@@ -41,6 +41,13 @@ Sphinx Parsed Code-Block
             **bold_number: [1, 2, 3, 4, 5]**
             ``literal_string: true``
             :ref:`link: null<link>`
+        complex_formatting_combinations:
+            *emphasised*\ _first_part_of_a_token: *1*\ 23456
+            bold\ _\ **middle**\ _of_a_token: "string **string** string"
+            literal_last_part_of_a\ _\ ``token``: [1, 2, 3, ``4, 5]``
+            :ref:`multiple<link>` :ref:`links<link>` inside :ref:`a<link>` token: true
+            *markup*\ ``_``\ **immediately**\ :ref:`one<link>`\ *after*\ ``another``: null
+
 
 
 .. parsed-code-block:: yaml
@@ -85,6 +92,12 @@ Sphinx Parsed Code-Block
             **bold_number: [1, 2, 3, 4, 5]**
             ``literal_string: true``
             :ref:`link: null<link>`
+        complex_formatting_combinations:
+            *emphasised*\ _first_part_of_a_token: *1*\ 23456
+            bold\ _\ **middle**\ _of_a_token: "string **string** string"
+            literal_last_part_of_a\ _\ ``token``: [1, 2, 3, ``4, 5]``
+            :ref:`multiple<link>` :ref:`links<link>` inside :ref:`a<link>` token: true
+            *markup*\ ``_``\ **immediately**\ :ref:`one<link>`\ *after*\ ``another``: null
 
 
 .. parsed-code-block:: yaml
@@ -131,6 +144,12 @@ Sphinx Parsed Code-Block
             **bold_number: [1, 2, 3, 4, 5]**
             ``literal_string: true``
             :ref:`link: null<link>`
+        complex_formatting_combinations:
+            *emphasised*\ _first_part_of_a_token: *1*\ 23456
+            bold\ _\ **middle**\ _of_a_token: "string **string** string"
+            literal_last_part_of_a\ _\ ``token``: [1, 2, 3, ``4, 5]``
+            :ref:`multiple<link>` :ref:`links<link>` inside :ref:`a<link>` token: true
+            *markup*\ ``_``\ **immediately**\ :ref:`one<link>`\ *after*\ ``another``: null
 
 
 ENDOFFILE!!!!!!!!!!!!!!!!!

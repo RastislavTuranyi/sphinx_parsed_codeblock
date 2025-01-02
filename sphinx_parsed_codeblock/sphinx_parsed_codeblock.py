@@ -113,6 +113,11 @@ class MarkupHtmlFormatter(HtmlFormatter):
                         except StopIteration:
                             new_line.append('\n')
                             return new_line
+                    elif text == match[:len(text)]:
+                        new_line.append(span + text)
+                        span = ''
+                        match = match[len(text):]
+                        break
                     else:
                         LOGGER.warning('sphinx-parsed-codeblock: '
                                        'Could not resolve markup and syntax highlighting; this '
@@ -124,6 +129,12 @@ class MarkupHtmlFormatter(HtmlFormatter):
 
             if match == text:
                 new_line.append(span + markup + r'</span>')
+            elif text == match[:len(text)]:
+                new_line.append(span + markup)
+                span = ''
+                match = match[len(text):]
+                if match:
+                    continue
             else:
                 spans, matches = [span], [match]
                 for result in span_iterator:
