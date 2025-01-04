@@ -22,6 +22,22 @@ LOGGER = logging.getLogger(__name__)
 
 
 class MarkupHtmlFormatter(HtmlFormatter):
+    """
+    Pygments HTML formatter that is aware of Sphinx.
+
+    A custom HTML formatter for pygments that is aware of the sphinx node it is formatting and its
+    corresponding sphinx HTML formatter.
+
+    Parameters
+    ----------
+    node
+        The sphinx node being formatted. This node should contain children nodes that carry the
+        markup information.
+    visitor
+        The sphinx HTML formatter used for creating the sphinx HTML output.
+    **options
+        Pygments `pygments.formatters.html.HtmlFormatter` options.
+    """
     def __init__(self,
                  node: parsed_code_block,
                  visitor: HTML5Translator,
