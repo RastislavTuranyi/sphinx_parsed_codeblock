@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 import re
-from typing import Generator, TYPE_CHECKING
+from typing import Generator, IO, TYPE_CHECKING
 
 from docutils import nodes
 from docutils.nodes import literal_block
@@ -181,7 +181,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
                 new_line.append('\n')
                 return new_line
 
-    def format_unencoded(self, tokensource, outfile):
+    def format_unencoded(self, tokensource: Generator, outfile: IO) -> None:
         source = self._format_lines(tokensource)
         source = self._insert_markup(source)
 
