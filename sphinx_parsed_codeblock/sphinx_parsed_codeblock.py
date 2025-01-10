@@ -111,6 +111,9 @@ class MarkupHtmlFormatter(HtmlFormatter):
         new_line
             The `line` with the sphinx markup inserted.
         """
+        if line == '\n':
+            return line
+
         new_line = []
         span_iterator = re.finditer(r'(<span.*?>)(.*?)</span>', line)
         span, match = next(span_iterator).groups()
