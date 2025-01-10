@@ -11,6 +11,7 @@ Sphinx Parsed Code-Block
             bold_string: **"string"**
             literal_string: ``"string"``
             link: :ref:`"string"<link>`
+
         numbers:
             number: 1
             emphasised_number: *17537543*
@@ -74,6 +75,7 @@ Sphinx Parsed Code-Block
             bold_list: **[1, 2, 3, 4, 5]**
             literal_list: ``[1, 2, 3, 4, 5]``
             link: :ref:`[1, 2, 3, 4, 5]<link>`
+
         bools:
             bool: true
             emphasised_bool: *false*
@@ -144,6 +146,7 @@ Sphinx Parsed Code-Block
             **bold_number: [1, 2, 3, 4, 5]**
             ``literal_string: true``
             :ref:`link: null<link>`
+
         complex_formatting_combinations:
             *emphasised*\ _first_part_of_a_token: *1*\ 23456
             bold\ _\ **middle**\ _of_a_token: "string **string** string"
