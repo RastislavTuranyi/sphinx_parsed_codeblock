@@ -276,7 +276,10 @@ def build_child_source(visitor: HTML5Translator, child: nodes.Node) -> str:
     """
     i = len(visitor.body)
     child.walkabout(visitor)
-    source = visitor.body.pop(i)
+    try:
+        source = visitor.body.pop(i)
+    except IndexError:
+        return ''
 
     for j in range(i+1, len(visitor.body)+1):
         source += visitor.body.pop(i)
