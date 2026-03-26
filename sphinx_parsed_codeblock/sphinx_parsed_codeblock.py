@@ -21,6 +21,35 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger(__name__)
 
 
+def split_parsed_codeblock(
+    node: parsed_code_block
+) -> Generator[tuple[str, str | nodes.Node], None, None]:
+    """
+    Creates a generator that yields lines and elements from a parsed code block Sphinx node.
+
+    In other words, it loops over the contents of a parsed code block Sphinx node (``node``). If it
+    encounters text, it splits it into lines, otherwise it yields the markup element.
+
+    Parameters
+    ----------
+    node
+        The `parsed_code_block` node that is being highlighted.
+
+    Yields
+    ------
+    text: str
+        The simple text of an element.
+    markup: str or None
+        The HTML-formatted element.
+    """
+    for child in node.children:
+        if isinstance(child, nodes.Text):
+            for line in child.astext().split('\n'):
+                yield escape_html(line), None
+        else:
+            yield escape_html(child.astext()), child
+
+
 class MarkupHtmlFormatter(HtmlFormatter):
     """
     Pygments HTML formatter that is aware of Sphinx.
@@ -44,39 +73,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                  **options):
         super().__init__(**options)
 
-        self.sphinx_generator = self._get_sphinx(node, visitor)
-
-    @staticmethod
-    def _get_sphinx(node: parsed_code_block,
-                    visitor: HTML5Translator
-                    ) -> Generator[tuple[str, str | None], None, None]:
-        """
-        Creates a generator that yields elements from the sphinx nodes.
-
-        To be precise, it either yields a full line of text (as marked by the \n character, which
-        happens if a given sphinx node is a non-markup Text node), or the full contents of a markup
-        node.
-
-        Parameters
-        ----------
-        node
-            The `parsed_code_block` node that is being highlighted.
-        visitor
-            The visitor used in docutils/sphinx for walking through nodes.
-
-        Yields
-        ------
-        text: str
-            The simple text of an element.
-        markup: str or None
-            The HTML-formatted element.
-        """
-        for child in node.children:
-            if isinstance(child, nodes.Text):
-                for line in child.astext().split('\n'):
-                    yield escape_html(line), None
-            else:
-                yield escape_html(child.astext()), build_child_source(visitor, child)
+        self.sphinx_generator = split_parsed_codeblock(node)
+        self.visitor = visitor
 
     def _insert_markup(self, tokensource: Generator) -> Generator[tuple[int, str], None, None]:
         """
@@ -146,6 +144,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
 
                 continue
 
+            markup = build_child_source(self.visitor, markup)
             if match == text:
                 new_line.append(span + markup + r'</span>')
             elif text == match[:len(text)]:
