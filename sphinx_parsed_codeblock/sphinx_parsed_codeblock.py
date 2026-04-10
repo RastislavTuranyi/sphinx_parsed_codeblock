@@ -97,13 +97,7 @@ class PygmentsLineState:
         self.text = self.text[n:]
 
     def restore_span(self) -> str:
-        """
-        Reconstructs the current span.
-
-        Returns
-        -------
-
-        """
+        """Reconstructs the current span."""
         return self.html_span + self.text + r'</span>'
 
 
@@ -208,6 +202,102 @@ class MarkupHtmlFormatter(HtmlFormatter):
                 return None
         return new_line
 
+    def _handle_markup_over_multiple_elements(self,
+                                              sphinx_text: str,
+                                              sphinx_markup: str,
+                                              pygments_state: PygmentsLineState,
+                                              new_line: list[str]
+                                              ) -> bool | None:
+        """
+        Handles formatted sphinx text that extends over multiple Pygments-formatted elements.
+
+        I.e., when Pygments splits text into multiple separate spans for its formatting, but sphinx
+        formatting is applied over all that text, this function will handle that case by applying
+        the sphinx formatting for all pygments elements.
+
+        Parameters
+        ----------
+        sphinx_text
+            The plain text contained within formatted sphinx element - unformatted version of
+            ``sphinx_markup``.
+        sphinx_markup
+            The HTML-formatted text of a sphinx markup node - ``sphinx_text`` with the formatting.
+        pygments_state
+            The current state of Pygments HTML formatting, containing the current span + text.
+        new_line
+            List of strings containing the new line of text - the formatting will be appended to it.
+
+        Returns
+        -------
+        result
+            If everything went ok, ``None``, otherwise ``False``.
+        """
+        spans, matches = [pygments_state.html_span], [pygments_state.text]
+        for span, text in pygments_state:
+            spans.append(span)
+            matches.append(text)
+
+            if ''.join(matches) == sphinx_text:
+                break
+        else:
+            LOGGER.warning('sphinx-parsed-codeblock: '
+                           'Could not resolve markup and syntax highlighting; one line of '
+                           'a code-block will be stripped of markup (this is likely a bug)')
+            return False
+
+        try:
+            start, end = sphinx_markup.split(''.join(matches))
+        except ValueError:
+            start, end = parse_complex_sphinx_source(sphinx_markup, matches)
+
+        new_line.append(start)
+        for span_html_opener, span_contents in zip(spans, matches):
+            new_line.append(span_html_opener + span_contents + r'</span>')
+        new_line.append(end)
+
+    def _handle_markup(self,
+                       sphinx_text: str,
+                       sphinx_markup: str,
+                       pygments_state: PygmentsLineState,
+                       new_line: list[str]
+                       ) -> bool | None:
+        """
+        Handles formatted sphinx text in the process of resolving sphinx and pygments.
+
+        Given a text and its HTML-formatted version, applies the formatting to the HTML-formatted
+        text from pygments.
+
+        Parameters
+        ----------
+        sphinx_text
+            The plain text contained within formatted sphinx element - unformatted version of
+            ``sphinx_markup``.
+        sphinx_markup
+            The HTML-formatted text of a sphinx markup node - ``sphinx_text`` with the formatting.
+        pygments_state
+            The current state of Pygments HTML formatting, containing the current span + text.
+        new_line
+            List of strings containing the new line of text - the formatting will be appended to it.
+
+        Returns
+        -------
+        result
+            If everything went ok, ``None``. If the text ran out, ``True``. If an error occurred,
+            ``False``.
+        """
+        if pygments_state.text == sphinx_text:
+            new_line.append(pygments_state.html_span + sphinx_markup + r'</span>')
+            return None
+
+        if pygments_state.text.startswith(sphinx_text):
+            new_line.append(pygments_state.html_span + sphinx_markup)
+            pygments_state.cut(len(sphinx_text))
+            if pygments_state.text:
+                return True
+            return None
+
+        return self._handle_markup_over_multiple_elements(sphinx_text, sphinx_markup, pygments_state, new_line)
+
     def _handle_one_line(self, line: str) -> list[str] | str:
         """
         Inserts the sphinx markup into one line of syntax-highlighted code.
@@ -242,38 +332,11 @@ class MarkupHtmlFormatter(HtmlFormatter):
 
             markup = build_child_source(self.visitor, markup)
 
-            if pygments_state.text == sphinx_text:
-                new_line.append(pygments_state.html_span + markup + r'</span>')
-
-            elif sphinx_text == pygments_state.text[:len(sphinx_text)]:
-                new_line.append(pygments_state.html_span + markup)
-                pygments_state.html_span = ''
-                pygments_state.text = pygments_state.text[len(sphinx_text):]
-                if pygments_state.text:
-                    continue
-            else:
-                spans, matches = [pygments_state.html_span], [pygments_state.text]
-                for span, text in pygments_state:
-                    spans.append(span)
-                    matches.append(text)
-
-                    if ''.join(matches) == sphinx_text:
-                        break
-                else:
-                    LOGGER.warning('sphinx-parsed-codeblock: '
-                                   'Could not resolve markup and syntax highlighting; one line of '
-                                   'a code-block will be stripped of markup (this is likely a bug)')
-                    return line
-
-                try:
-                    start, end = markup.split(''.join(matches))
-                except ValueError:
-                    start, end = parse_complex_sphinx_source(markup, matches)
-
-                new_line.append(start)
-                for span_html_opener, span_contents in zip(spans, matches):
-                    new_line.append(span_html_opener + span_contents + r'</span>')
-                new_line.append(end)
+            result = self._handle_markup(sphinx_text, markup, pygments_state, new_line)
+            if result is True:
+                continue
+            if result is False:
+                return line
 
             try:
                 next(pygments_state)
