@@ -71,14 +71,36 @@ class PygmentsLineState:
     """
     def __init__(self, line: str):
         self._span_iterator = re.finditer(r'(<span.*?>)(.*?)</span>', line)
-        self.__next__()
+        self.html_span, self.text, self.html_close = self.__next__()
 
     def __iter__(self):
         return self
 
-    def __next__(self) -> tuple[str, str]:
-        self.html_span, self.text = next(self._span_iterator).groups()
-        return self.html_span, self.text
+    def __next__(self) -> tuple[str, str, str]:
+        html_span, text = next(self._span_iterator).groups()
+        split = re.match(r'(.*?)(</.*>)', text)
+        if split is None:
+            text = text
+            html_close = r'</span>'
+        else:
+            text, html_close = split.groups()
+            html_close += r'</span>'
+
+        open = ''.join(re.findall(r'<.*?>', text))
+        text = text.replace(open, '')
+        html_span += open
+
+        return html_span, text, html_close
+
+    def next(self) -> None:
+        """Sets the state to the next element"""
+        self.html_span, self.text, self.html_close = self.__next__()
+
+    def iter(self) -> tuple[str, str, str]:
+        """Iterates over itself while saving the current state in the process."""
+        for s, t, c in self:
+            self.html_span, self.text, self.html_close = s, t, c
+            yield s, t, c
 
     def __str__(self):
         return f'PygmentsLineState(html_span="{self.html_span}", text="{self.text}")'
@@ -96,9 +118,25 @@ class PygmentsLineState:
         self.html_span = ''
         self.text = self.text[n:]
 
+    def create_span(self, text: str) -> str:
+        """
+        Creates a new span with ``text`` inside the current HTML context.
+
+        Parameters
+        ----------
+        text
+            The text to insert into current span.
+
+        Returns
+        -------
+        new_span
+            The new span with ``text`` inserted
+        """
+        return self.html_span + text + self.html_close
+
     def restore_span(self) -> str:
         """Reconstructs the current span."""
-        return self.html_span + self.text + r'</span>'
+        return self.html_span + self.text + self.html_close
 
 
 class MarkupHtmlFormatter(HtmlFormatter):
@@ -146,8 +184,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
         for t, line in tokensource:
             yield t, ''.join(self._handle_one_line(line))
 
-    def _handle_text_line(self,
-                          sphinx_text: str,
+    @staticmethod
+    def _handle_text_line(sphinx_text: str,
                           pygments_state: PygmentsLineState,
                           new_line: list[str]) -> list[str] | None:
         """
@@ -186,7 +224,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
             if sphinx_text.startswith(pygments_state.text):
                 sphinx_text = sphinx_text[len(pygments_state.text):]
                 new_line.append(pygments_state.restore_span())
-                next(pygments_state)
+                pygments_state.next()
                 continue
 
             # Handles markup in the middle of a word
@@ -202,8 +240,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
                 return None
         return new_line
 
-    def _handle_markup_over_multiple_elements(self,
-                                              sphinx_text: str,
+    @staticmethod
+    def _handle_markup_over_multiple_elements(sphinx_text: str,
                                               sphinx_markup: str,
                                               pygments_state: PygmentsLineState,
                                               new_line: list[str]
@@ -232,12 +270,13 @@ class MarkupHtmlFormatter(HtmlFormatter):
         result
             If everything went ok, ``None``, otherwise ``False``.
         """
-        spans, matches = [pygments_state.html_span], [pygments_state.text]
-        for span, text in pygments_state:
-            spans.append(span)
-            matches.append(text)
+        temp_line = [pygments_state.restore_span()]
+        matches = pygments_state.text
+        for _, text, _ in pygments_state.iter():
+            temp_line.append(pygments_state.restore_span())
+            matches += text
 
-            if ''.join(matches) == sphinx_text:
+            if matches == sphinx_text:
                 break
         else:
             LOGGER.warning('sphinx-parsed-codeblock: '
@@ -251,8 +290,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
             start, end = parse_complex_sphinx_source(sphinx_markup, matches)
 
         new_line.append(start)
-        for span_html_opener, span_contents in zip(spans, matches):
-            new_line.append(span_html_opener + span_contents + r'</span>')
+        new_line.extend(temp_line)
         new_line.append(end)
 
     def _handle_markup(self,
@@ -286,7 +324,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
             ``False``.
         """
         if pygments_state.text == sphinx_text:
-            new_line.append(pygments_state.html_span + sphinx_markup + r'</span>')
+            new_line.append(pygments_state.create_span(sphinx_markup))
             return None
 
         if pygments_state.text.startswith(sphinx_text):
@@ -336,7 +374,7 @@ class MarkupHtmlFormatter(HtmlFormatter):
                 return line
 
             try:
-                next(pygments_state)
+                pygments_state.next()
             except StopIteration:
                 new_line.append('\n')
                 return new_line
