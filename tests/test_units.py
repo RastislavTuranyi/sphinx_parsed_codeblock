@@ -210,3 +210,48 @@ def test_pygments_line_state_cut(source_str, n, expected):
     assert state.text == expected
     assert state.html_close == close
 
+
+@pytest.mark.parametrize(
+    'text,state,expected,error',
+    (
+        # Test first block
+        ('', '<span>text</span>', [], False),
+        ('text', '<span>text</span>', ['<span>text</span>'], True),
+        ('text', '<span>text</span><span>word</span>', ['<span>text</span>'], False),
+        ('textword', '<span>text</span><span>word</span>',
+         ['<span>text</span>', '<span>word</span>'], True),
+        ('text word', '<span>text</span><span> </span><span>word</span>',
+         ['<span>text</span>', '<span> </span>', '<span>word</span>'], True),
+        ('text word', '<span>text</span><span> </span><span>word</span><span>more</span>',
+         ['<span>text</span>', '<span> </span>', '<span>word</span>'], False),
+        # This should trigger the warning in the first block - continue as normal
+        ('text more text', '<span>text</span>', ['<span>text</span>'], True),
+        # Test second block
+        ('text', '<span>text more text</span>', ['<span>text'], False),
+        ('text', '<span>text_</span>', ['<span>text'], False),
+        # Test both blocks
+        ('texttext', '<span>text</span><span>text more text</span>',
+         ['<span>text</span>', '<span>text'], False),
+    )
+)
+def test_handle_text_line(text, state, expected, error):
+    actual = []
+    state = spc.PygmentsLineState(state)
+
+    if error:
+        with pytest.raises(StopIteration):
+            spc.MarkupHtmlFormatter._handle_text_line(text, state, actual)
+    else:
+        result = spc.MarkupHtmlFormatter._handle_text_line(text, state, actual)
+        assert result == actual
+
+    assert actual == expected
+
+
+def test_handle_text_line_not_matching():
+    actual = []
+    state = spc.PygmentsLineState('<span>different text</span>')
+    result = spc.MarkupHtmlFormatter._handle_text_line('text', state, actual)
+
+    assert result is None
+    assert actual == []
