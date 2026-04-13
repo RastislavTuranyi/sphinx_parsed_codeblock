@@ -203,7 +203,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
         sphinx_text
             The current line of sphinx text, not formatted.
         pygments_state
-            The current state of the Pygments HTML-formatted line
+            The current state of the Pygments HTML-formatted line. Note that the state may be
+            advanced by the function.
         new_line
             The result list of strings for this line - this list will be appended to.
 
@@ -224,7 +225,15 @@ class MarkupHtmlFormatter(HtmlFormatter):
             if sphinx_text.startswith(pygments_state.text):
                 sphinx_text = sphinx_text[len(pygments_state.text):]
                 new_line.append(pygments_state.restore_span())
-                pygments_state.next()
+                try:
+                    pygments_state.next()
+                except StopIteration:
+                    if sphinx_text:
+                        LOGGER.warning('sphinx-parsed-codeblock: '
+                                       'Could not resolve markup and syntax highlighting for a line'
+                                       ' (excess sphinx text); this line will be stripped of sphinx'
+                                       'markup (this is likely a bug)')
+                    raise
                 continue
 
             # Handles markup in the middle of a word
@@ -234,9 +243,10 @@ class MarkupHtmlFormatter(HtmlFormatter):
                 break
             else:
                 LOGGER.warning('sphinx-parsed-codeblock: '
-                               'Could not resolve markup and syntax highlighting; this '
+                               'Could not resolve markup and syntax highlighting (sphinx and '
+                               'pygments do not match); this line will be stripped of sphinx markup'
                                'will probably cause much of the markup from a code-block '
-                               'to be removed (this is likely a bug)')
+                               ' (this is likely a bug)')
                 return None
         return new_line
 
