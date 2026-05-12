@@ -1,14 +1,25 @@
 from pathlib import Path
 import pytest
 
-from sphinx.testing.path import path
+try:
+    from sphinx.testing.path import path
+
+    @pytest.fixture(scope='session')
+    def rootdir():
+        return path(__file__).parent.abspath() / 'roots'
+
+    SPHINX_PATH = True
+except ImportError:
+    from pathlib import Path as path
+
+    @pytest.fixture(scope='session')
+    def rootdir():
+        return path(__file__).parent.absolute() / 'roots'
+
+    SPHINX_PATH = False
+
 
 pytest_plugins = ('sphinx.testing.fixtures',)
-
-
-@pytest.fixture(scope='session')
-def rootdir():
-    return path(__file__).parent.abspath() / 'roots'
 
 
 def clean_up(text: str) -> list[str]:
@@ -41,13 +52,16 @@ def clean_up(text: str) -> list[str]:
 
 @pytest.mark.sphinx("html", testroot="integration")
 def test_integration_html(app, status):
-    root_dir = path(__file__).parent.abspath()
+    if SPHINX_PATH:
+        root_dir = path(__file__).parent.abspath()
+    else:
+        root_dir = path(__file__).parent.absolute()
 
     app.build()
     assert "build succeeded" in status.getvalue()  # Build succeeded
 
     result = clean_up((Path(app.srcdir) / "_build/html/test.html").read_text())
-    expected = clean_up((root_dir / 'roots' / 'test-integration' / "test.html").read_text())
+    expected = clean_up((root_dir / 'roots' / 'test-integration' / "test.html").read_text(encoding='utf-8'))
 
     assert expected != []
     assert result == expected
