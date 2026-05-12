@@ -16,7 +16,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 
 dependencies = [
-    "sphinx >= 5.0.0",
+    "sphinx >= 6.0.0",
 ]
 
 [project.optional-dependencies]
