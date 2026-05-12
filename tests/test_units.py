@@ -257,33 +257,35 @@ def test_handle_text_line_not_matching():
     assert actual == []
 
 
-@pytest.mark.parametrize(
-    'text,markup,state,expected',
-    (
-        ('text', '<b>text</b>', '<span>te</span><span>xt</span>',
-         ['<b>', '<span>te</span>', '<span>xt</span>', '</b>']),
-        ('text', '<b>text</b>', '<span>te</span><span>xt</span><span>more</span><span> text</span>',
-         ['<b>', '<span>te</span>', '<span>xt</span>', '</b>']),
-        ('textmore text', '<b>textmore text</b>',
-         '<span>te</span><span>xt</span><span>more</span><span> text</span>',
-         ['<b>', '<span>te</span>', '<span>xt</span>', '<span>more</span>', '<span> text</span>', '</b>']),
-        # parse_complex_sphinx_source cases:
-        ('text more text', '<b><span>text</span><span> more</span><span> text</span></b>',
-         '<span>text</span><span> more</span><span> text</span>',
-         ['<b>', '<span>text</span>', '<span> more</span>', '<span> text</span>', '</b>']),
-        ('text more text',
-         '<b><span class="sphinx">text</span><span class="sphinx"> more</span><span class="sphinx"> text</span></b>',
-         '<span class="pygments">text</span><span class="pygments"> more</span><span class="pygments"> text</span>',
-         ['<b>', '<span class="pygments">text</span>', '<span class="pygments"> more</span>',
-          '<span class="pygments"> text</span>', '</b>']),
-        ('text more text',
-         '<b><code><span class="sphinx">text</span><span class="sphinx"> more</span><span class="sphinx"> text</span></code></b>',
-         '<span class="pygments">text</span><span class="pygments"> more</span><span class="pygments"> text</span>',
-         ['<b><code>', '<span class="pygments">text</span>', '<span class="pygments"> more</span>',
-          '<span class="pygments"> text</span>', '</code></b>']),
-    )
+HANDLE_MARKUP_OVER_MULTIPLE_ELEMENTS_CASES = (
+    ('text', '<b>text</b>', '<span>te</span><span>xt</span>',
+     ['<b>', '<span>te</span>', '<span>xt</span>', '</b>'], None),
+    ('text', '<b>text</b>', '<span>te</span><span>xt</span><span>more</span><span> text</span>',
+     ['<b>', '<span>te</span>', '<span>xt</span>', '</b>'], None),
+    ('textmore text', '<b>textmore text</b>',
+     '<span>te</span><span>xt</span><span>more</span><span> text</span>',
+     ['<b>', '<span>te</span>', '<span>xt</span>', '<span>more</span>', '<span> text</span>', '</b>'], None),
+    # parse_complex_sphinx_source cases:
+    ('text more text', '<b><span>text</span><span> more</span><span> text</span></b>',
+     '<span>text</span><span> more</span><span> text</span>',
+     ['<b>', '<span>text</span>', '<span> more</span>', '<span> text</span>', '</b>'], None),
+    ('text more text',
+     '<b><span class="sphinx">text</span><span class="sphinx"> more</span><span class="sphinx"> text</span></b>',
+     '<span class="pygments">text</span><span class="pygments"> more</span><span class="pygments"> text</span>',
+     ['<b>', '<span class="pygments">text</span>', '<span class="pygments"> more</span>',
+      '<span class="pygments"> text</span>', '</b>'], None),
+    ('text more text',
+     '<b><code><span class="sphinx">text</span><span class="sphinx"> more</span><span class="sphinx"> text</span></code></b>',
+     '<span class="pygments">text</span><span class="pygments"> more</span><span class="pygments"> text</span>',
+     ['<b><code>', '<span class="pygments">text</span>', '<span class="pygments"> more</span>',
+      '<span class="pygments"> text</span>', '</code></b>'], None),
 )
-def test_handle_markup_over_multiple_elements(text, markup, state, expected):
+
+
+@pytest.mark.parametrize(
+    'text,markup,state,expected,_', HANDLE_MARKUP_OVER_MULTIPLE_ELEMENTS_CASES
+)
+def test_handle_markup_over_multiple_elements(text, markup, state, expected, _):
     actual = []
     state = spc.PygmentsLineState(state)
 
@@ -330,3 +332,29 @@ def test_handle_markup_over_multiple_elements_error(text, markup, state):
     result = spc.MarkupHtmlFormatter._handle_markup_over_multiple_elements(text, markup, state, actual)
 
     assert result is False
+
+
+@pytest.mark.parametrize(
+    'text,markup,state,expected,expected_result',
+    (
+        ('text', '<b>text</b>', '<span class="pygments">text</span>',
+         ['<span class="pygments"><b>text</b></span>'], None),
+        ('text', '<b>text</b>', '<span class="pygments">text</span><span class="pygments">more</span>',
+         ['<span class="pygments"><b>text</b></span>'], None),
+        ('text', '<b><span class="sphinx">text</span></b>', '<span class="pygments">text</span>',
+         ['<span class="pygments"><b><span class="sphinx">text</span></b></span>'], None),
+        ('text', '<b>text</b>', '<span class="pygments">text more text</span>',
+         ['<span class="pygments"><b>text</b>'], True),
+        ('text', '<b><span class="sphinx">text</span></b>', '<span class="pygments">text more text</span>',
+         ['<span class="pygments"><b><span class="sphinx">text</span></b>'], True),
+        *HANDLE_MARKUP_OVER_MULTIPLE_ELEMENTS_CASES
+    )
+)
+def test_handle_markup(text, markup, state, expected, expected_result):
+    actual = []
+    state = spc.PygmentsLineState(state)
+
+    result = spc.MarkupHtmlFormatter._handle_markup(text, markup, state, actual)
+
+    assert result is expected_result
+    assert actual == expected

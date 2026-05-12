@@ -303,7 +303,8 @@ class MarkupHtmlFormatter(HtmlFormatter):
         new_line.extend(temp_line)
         new_line.append(end)
 
-    def _handle_markup(self,
+    @classmethod
+    def _handle_markup(cls,
                        sphinx_text: str,
                        sphinx_markup: str,
                        pygments_state: PygmentsLineState,
@@ -342,9 +343,9 @@ class MarkupHtmlFormatter(HtmlFormatter):
             pygments_state.cut(len(sphinx_text))
             if pygments_state.text:
                 return True
-            return None
+            return None  # Might be unreachable but just in case
 
-        return self._handle_markup_over_multiple_elements(sphinx_text, sphinx_markup, pygments_state, new_line)
+        return cls._handle_markup_over_multiple_elements(sphinx_text, sphinx_markup, pygments_state, new_line)
 
     def _handle_one_line(self, line: str) -> list[str] | str:
         """
