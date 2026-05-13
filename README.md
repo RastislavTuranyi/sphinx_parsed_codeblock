@@ -17,10 +17,10 @@ which mixes the functionality of both, providing support for markup inside synta
 The extension can be installed via pip:
 
 ```
-pip install https://github.com/RastislavTuranyi/sphinx_parsed_codeblock
+pip install sphinx_parsed_codeblock
 ```
 
-Then, by including the extension in `conf.py`:
+Then, by including the extension in `conf.py` or `pyproject.toml`:
 
 ```Python
 extensions = ['sphinx_parsed_codeblock']
@@ -56,26 +56,7 @@ the same options and arguments:
         link: :ref:`true<doc-top>`
 ```
 
-## Installation
-
-Currently, the package can only be installed via pip and from GitHub, either directly:
-
-```
-pip install https://github.com/RastislavTuranyi/sphinx_parsed_codeblock
-```
-
-or from a local copy:
-
-```
-git clone https://github.com/RastislavTuranyi/sphinx_parsed_codeblock.git
-pip install sphinx_parsed_codeblock
-```
-
-However, either way, don't forget to include the extension in the `conf.py`:
-
-```python
-extensions = ['sphinx_parsed_codeblock']
-```
+For more information, see [documentation](https://rastislavturanyi.github.io/sphinx_parsed_codeblock).
 
 ## Functionality
 
@@ -98,3 +79,7 @@ For all other formats, the `parsed-code-block` is treated the same as `parsed-li
 output will be produced, but without syntax highlighting.
 
 
+## Contributing
+
+The project is considered generally feature complete, but if anything is not working as expected,
+please open an issue!
