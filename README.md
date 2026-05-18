@@ -20,7 +20,7 @@ The extension can be installed via pip:
 pip install sphinx_parsed_codeblock
 ```
 
-Then, by including the extension in `conf.py` or `pyproject.toml`:
+Then, by including the extension in Sphinx's `conf.py`:
 
 ```Python
 extensions = ['sphinx_parsed_codeblock']
