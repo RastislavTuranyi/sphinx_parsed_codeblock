@@ -1,8 +1,12 @@
 import pytest
 
 from docutils.nodes import Text, emphasis, strong, literal, reference
-from pygments.formatters.html import escape_html
 from sphinx_parsed_codeblock import sphinx_parsed_codeblock as spc
+
+try:
+    from pygments.util import html_escape as escape_html
+except ImportError:
+    from pygments.formatters.html import escape_html
 
 
 class MockVisitor:

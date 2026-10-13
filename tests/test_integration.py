@@ -1,5 +1,8 @@
+from packaging.version import Version
 from pathlib import Path
 import pytest
+
+from pygments import __version__ as pygments_version
 
 try:
     from sphinx.testing.path import path
@@ -61,7 +64,13 @@ def test_integration_html(app, status):
     assert "build succeeded" in status.getvalue()  # Build succeeded
 
     result = clean_up((Path(app.srcdir) / "_build/html/test.html").read_text())
-    expected = clean_up((root_dir / 'roots' / 'test-integration' / "test.html").read_text(encoding='utf-8'))
+
+    if Version(pygments_version) < Version("2.21"):
+        expected = clean_up((root_dir / 'roots' / 'test-integration' / "test_old.html")
+                            .read_text(encoding='utf-8'))
+    else:
+        expected = clean_up((root_dir / 'roots' / 'test-integration' / "test_new.html")
+                            .read_text(encoding='utf-8'))
 
     assert expected != []
     assert result == expected
