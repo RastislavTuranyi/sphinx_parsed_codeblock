@@ -1,0 +1,10 @@
+Changelog
+=========
+
+Version 1.0.1
+-------------
+(released November 12th, 2026)
+
+- Bug fixes:
+
+  * Fix incompatibility with Pygments v2.21.0 (#15) [as a result of this, `'` and `"` render literally]
