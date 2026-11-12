@@ -7,7 +7,12 @@ from typing import Generator, IO, TYPE_CHECKING
 from docutils import nodes
 from docutils.nodes import literal_block
 
-from pygments.formatters.html import escape_html, HtmlFormatter
+from pygments.formatters.html import HtmlFormatter
+
+try:
+    from pygments.util import html_escape as escape_html
+except ImportError:
+    from pygments.formatters.html import escape_html
 
 from sphinx.directives.code import CodeBlock, container_wrapper
 from sphinx.util import logging
