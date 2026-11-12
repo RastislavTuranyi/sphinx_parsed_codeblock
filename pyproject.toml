@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = 'sphinx_parsed_codeblock'
-version = "1.0.0"
+version = "1.0.1"
 authors = [
     {name = "Rastislav Turanyi", email = "rastislav.turanyi@stfc.ac.uk"},
 ]
